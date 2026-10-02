@@ -1,209 +1,166 @@
 #!/usr/bin/env python3
 """
-ETL Pipeline: Clean CSV Sales Data and Load into PostgreSQL Database
+ETL Pipeline: Clean Sales Transaction CSV and Load into PostgreSQL
 """
 
 import os
-import sys
-import warnings
 from urllib.parse import quote_plus
-import numpy as np
 import pandas as pd
-from pandas.errors import EmptyDataError, ParserError
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import OperationalError, ProgrammingError, SQLAlchemyError
-
-# Suppress minor library warnings
-warnings.filterwarnings('ignore')
-
-# ----------------------------------------------------------------------
-# Configuration
-# ----------------------------------------------------------------------
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-BASE_DIR = os.path.dirname(SCRIPT_DIR)  # week-1/ETL-data-from-csv-file-to-db
-DEFAULT_DATASET_PATH = os.path.join(BASE_DIR, 'dataset', 'sales_transaction_dataset.csv')
-CLEANED_CSV_PATH = os.path.join(SCRIPT_DIR, 'sales_transaction_dataset_cleaned.csv')
-CLEANED_XLSX_PATH = os.path.join(SCRIPT_DIR, 'sales_transaction_dataset_cleaned.xlsx')
-
-# Database Credentials
-DB_CONFIG = {
-    "host": "localhost",
-    "port": 5432,
-    "dbname": "postgres",
-    "username": "postgres",
-    "password": "post@123!"
-}
+from sqlalchemy.exc import SQLAlchemyError
 
 
-# ======================================================================
-# 1. EXTRACT: Read Dataset with Exception Handling
-# ======================================================================
-def read_dataset(file_path: str) -> pd.DataFrame:
+# ==============================================================================
+# CONFIGURATION
+# ==============================================================================
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR = os.path.dirname(CURRENT_DIR)
+
+INPUT_CSV_PATH = os.path.join(BASE_DIR, "dataset", "sales_transaction_dataset.csv")
+OUTPUT_CSV_PATH = os.path.join(CURRENT_DIR, "sales_transaction_dataset_cleaned.csv")
+
+DB_USER = "postgres"
+DB_PASS = "post@123!"
+DB_HOST = "localhost"
+DB_PORT = 5432
+DB_NAME = "postgres"
+
+
+# ==============================================================================
+# 1. EXTRACT
+# ==============================================================================
+def load_raw_data(file_path: str) -> pd.DataFrame:
     """
-    Read dataset from a CSV file with comprehensive exception handling.
+    Read the raw dataset from a CSV file.
+    Catches file missing and corrupted data exceptions.
     """
-    print(f"[*] Reading dataset from: {file_path}")
+    print(f"Reading dataset: {file_path}")
     try:
-        if not os.path.exists(file_path):
-            raise FileNotFoundError(f"Dataset file not found at: {file_path}")
-
         df = pd.read_csv(file_path)
-
-        if df.empty:
-            raise EmptyDataError(f"Dataset file is empty: {file_path}")
-
-        print(f"[+] Dataset successfully loaded: {df.shape[0]:,} rows, {df.shape[1]} columns.")
+        print(f"Loaded {len(df):,} rows successfully.")
         return df
-
-    except FileNotFoundError as err:
-        print(f"[!] File Error: {err}")
-        sys.exit(1)
-    except EmptyDataError as err:
-        print(f"[!] Data Error: {err}")
-        sys.exit(1)
-    except ParserError as err:
-        print(f"[!] CSV Parsing Error: File format is corrupted. {err}")
-        sys.exit(1)
-    except PermissionError as err:
-        print(f"[!] Permission Error: Access denied for file {file_path}. {err}")
-        sys.exit(1)
-    except Exception as err:
-        print(f"[!] Unexpected error while reading dataset: {err}")
-        sys.exit(1)
+    except FileNotFoundError:
+        print(f"Error: Dataset not found at '{file_path}'. Please check the path.")
+        raise
+    except pd.errors.EmptyDataError:
+        print(f"Error: The dataset file is empty.")
+        raise
+    except Exception as e:
+        print(f"Error reading dataset: {e}")
+        raise
 
 
-# ======================================================================
-# 2. TRANSFORM: Data Cleaning and Standardization
-# ======================================================================
-def transform_data(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Clean and transform the sales transaction dataset:
-    - Handle missing values in TransactionNo and CustomerNo
-    - Standardize mixed date formats
-    - Clean negative quantity values
-    - Remove duplicate records and ensure primary key integrity
-    - Standardize column names to lowercase
-    """
-    print("\n[*] Starting data transformation...")
-    initial_rows = len(df)
-
-    # A. Clean TransactionNo & CustomerNo (Drop missing values)
-    df = df.dropna(subset=['TransactionNo', 'CustomerNo'], inplace=False)
-
-    # Convert CustomerNo from float -> int -> str
-    df['CustomerNo'] = df['CustomerNo'].astype(int).astype(str)
-
-    # B. Standardize Date formats (%m.%d.%y and %m/%d/%Y)
-    date_format_1 = pd.to_datetime(df['Date'], format='%m.%d.%y', errors='coerce')
-    date_format_2 = pd.to_datetime(df['Date'], format='%m/%d/%Y', errors='coerce')
-    df['Date'] = date_format_1.fillna(date_format_2)
-
-    # C. Clean Quantity (remove '-' sign and convert to float)
-    df['Quantity'] = (
-        df['Quantity']
-        .astype(str)
-        .str.replace('-', '', regex=False)
-        .astype(float)
-    )
-
-    # D. Reorder and normalize column names
-    df = df.reindex(columns=[
-        'CustomerNo', 'Date', 'TransactionNo', 'ProductNo',
-        'ProductName', 'Quantity', 'Price', 'Country'
-    ])
-    df.columns = df.columns.str.lower()
-
-    # E. Remove full duplicates
-    df = df.drop_duplicates()
-
-    # F. Ensure uniqueness on composite primary key (customerno, productno, date, transactionno)
-    df = df.drop_duplicates(subset=['customerno', 'productno', 'date', 'transactionno'])
-
-    final_rows = len(df)
-    dropped_rows = initial_rows - final_rows
-    print(f"[+] Transformation complete: {final_rows:,} valid records retained ({dropped_rows:,} removed).")
+# ==============================================================================
+# 2. TRANSFORM (Individual Cleaning Functions)
+# ==============================================================================
+def drop_missing_values(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows with missing TransactionNo or CustomerNo, format CustomerNo."""
+    df = df.dropna(subset=["TransactionNo", "CustomerNo"])
+    df["CustomerNo"] = df["CustomerNo"].astype(int).astype(str)
     return df
 
 
-# ======================================================================
-# 3. SAVE: Export Cleaned Files with Exception Handling
-# ======================================================================
-def save_cleaned_data(df: pd.DataFrame, csv_path: str, excel_path: str = None) -> None:
+def standardize_dates(df: pd.DataFrame) -> pd.DataFrame:
+    """Parse and unify mixed date formats (%m.%d.%y and %m/%d/%Y)."""
+    fmt1 = pd.to_datetime(df["Date"], format="%m.%d.%y", errors="coerce")
+    fmt2 = pd.to_datetime(df["Date"], format="%m/%d/%Y", errors="coerce")
+    df["Date"] = fmt1.fillna(fmt2)
+    return df
+
+
+def clean_quantities(df: pd.DataFrame) -> pd.DataFrame:
+    """Strip minus signs from Quantity and cast to float."""
+    df["Quantity"] = (
+        df["Quantity"]
+        .astype(str)
+        .str.replace("-", "", regex=False)
+        .astype(float)
+    )
+    return df
+
+
+def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
+    """Remove exact duplicate rows and ensure primary key columns are unique."""
+    df = df.drop_duplicates()
+    df = df.drop_duplicates(subset=["customerno", "productno", "date", "transactionno"])
+    return df
+
+
+def transform_data(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Save cleaned data to CSV and Excel with error handling.
+    Orchestrate all data cleaning steps and column formatting.
     """
+    print("Transforming and cleaning data...")
+
+    df = drop_missing_values(df)
+    df = standardize_dates(df)
+    df = clean_quantities(df)
+
+    # Reorder and convert column names to lowercase
+    columns = [
+        "CustomerNo", "Date", "TransactionNo", "ProductNo",
+        "ProductName", "Quantity", "Price", "Country"
+    ]
+    df = df[columns]
+    df.columns = df.columns.str.lower()
+
+    df = remove_duplicates(df)
+
+    print(f"Data cleaned: {len(df):,} valid rows ready.")
+    return df
+
+
+# ==============================================================================
+# 3. EXPORT
+# ==============================================================================
+def export_cleaned_data(df: pd.DataFrame, output_path: str) -> None:
+    """
+    Save the cleaned DataFrame to a CSV file.
+    """
+    print(f"Exporting cleaned data to: {output_path}")
     try:
-        print(f"\n[*] Saving cleaned data to CSV: {csv_path}")
-        df.to_csv(csv_path, index=False)
-        print("[+] CSV export successful.")
-
-        if excel_path:
-            print(f"[*] Saving sample cleaned data to Excel (50,000 rows): {excel_path}")
-            with pd.ExcelWriter(excel_path) as writer:
-                df.head(50000).to_excel(writer, sheet_name="sales_transaction", index=False)
-            print("[+] Excel export successful.")
-
-    except PermissionError as err:
-        print(f"[!] Write Permission Error: Cannot write output files. {err}")
-    except OSError as err:
-        print(f"[!] OS/Disk Error while saving files: {err}")
-    except Exception as err:
-        print(f"[!] Warning: Failed to save output files: {err}")
+        df.to_csv(output_path, index=False)
+        print("CSV export completed.")
+    except Exception as e:
+        print(f"Warning: Failed to export CSV: {e}")
 
 
-# ======================================================================
-# 4. DATABASE: Connection with Exception Handling
-# ======================================================================
-def get_db_connection(host: str, port: int, dbname: str, username: str, password: str):
+# ==============================================================================
+# 4. DATABASE CONNECTION
+# ==============================================================================
+def get_database_engine(user: str, password: str, host: str, port: int, dbname: str):
     """
-    Establish database engine and test connectivity with comprehensive exception handling.
+    Create a SQLAlchemy engine and verify the connection.
+    Handles connection errors (Docker stopped, bad port, wrong credentials).
     """
-    print(f"\n[*] Connecting to PostgreSQL at {host}:{port}/{dbname} (User: {username})...")
-    encoded_password = quote_plus(password)
-    db_url = f"postgresql+psycopg2://{username}:{encoded_password}@{host}:{port}/{dbname}?sslmode=disable"
-
+    print(f"Connecting to database: {user}@{host}:{port}/{dbname}")
     try:
+        encoded_password = quote_plus(password)
+        db_url = f"postgresql+psycopg2://{user}:{encoded_password}@{host}:{port}/{dbname}?sslmode=disable"
         engine = create_engine(db_url, pool_pre_ping=True)
 
-        # Test active connection
+        # Test connection
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT version();")).scalar()
-            now = conn.execute(text("SELECT NOW();")).scalar()
-            print("[+] Database connection successful!")
-            print(f"    Server Time : {now}")
-            print(f"    Version     : {result.split(',')[0]}")
+            conn.execute(text("SELECT 1;"))
 
+        print("Database connection established successfully.")
         return engine
 
-    except OperationalError as err:
-        print(f"[!] Database Connection Error (OperationalError):")
-        print(f"    Could not connect to {host}:{port}. Is the Docker container running?")
-        print(f"    Details: {err.orig if hasattr(err, 'orig') else err}")
-        sys.exit(1)
-
-    except ProgrammingError as err:
-        print(f"[!] Database Authentication / Configuration Error (ProgrammingError):")
-        print(f"    Check your username, password, or database name.")
-        print(f"    Details: {err.orig if hasattr(err, 'orig') else err}")
-        sys.exit(1)
-
-    except SQLAlchemyError as err:
-        print(f"[!] General SQLAlchemy Error: {err}")
-        sys.exit(1)
-
-    except Exception as err:
-        print(f"[!] Unexpected error during database connection: {err}")
-        sys.exit(1)
+    except SQLAlchemyError as e:
+        print(f"Database connection error: Could not reach {host}:{port}/{dbname}.")
+        print(f"Details: {e}")
+        raise
+    except Exception as e:
+        print(f"Unexpected connection error: {e}")
+        raise
 
 
-# ======================================================================
-# 5. LOAD: Table Creation and Data Ingestion
-# ======================================================================
+# ==============================================================================
+# 5. LOAD
+# ==============================================================================
 def create_table_if_not_exists(engine) -> None:
-    """
-    Create the target table in PostgreSQL if it doesn't already exist.
-    """
-    create_table_query = """
+    """Create the target table in PostgreSQL if it does not already exist."""
+    create_table_sql = """
     CREATE TABLE IF NOT EXISTS tbl_sales_transaction (
         customerno INT NOT NULL,
         date DATE NOT NULL,
@@ -218,71 +175,60 @@ def create_table_if_not_exists(engine) -> None:
     """
     try:
         with engine.connect() as conn:
-            conn.execute(text(create_table_query))
+            conn.execute(text(create_table_sql))
             conn.commit()
-            print("[+] Table 'tbl_sales_transaction' verified/created successfully.")
-    except SQLAlchemyError as err:
-        print(f"[!] Failed to create table: {err}")
+        print("Table 'tbl_sales_transaction' is ready.")
+    except SQLAlchemyError as e:
+        print(f"Failed to create table: {e}")
         raise
 
 
-def load_data_to_db(df: pd.DataFrame, engine, table_name: str = 'tbl_sales_transaction', truncate: bool = True) -> None:
+def load_to_database(df: pd.DataFrame, engine, table_name: str = "tbl_sales_transaction") -> None:
     """
-    Load cleaned DataFrame into PostgreSQL in chunks with exception handling.
+    Truncate existing table and load cleaned DataFrame in batches.
     """
     try:
         with engine.connect() as conn:
-            if truncate:
-                print(f"[*] Truncating existing records in '{table_name}'...")
-                conn.execute(text(f"DELETE FROM {table_name};"))
-                conn.commit()
-                print("[+] Table truncated.")
+            conn.execute(text(f"DELETE FROM {table_name};"))
+            conn.commit()
+            print(f"Cleared existing data from '{table_name}'.")
 
-        print(f"[*] Ingesting {len(df):,} records into '{table_name}' (chunksize=10,000)...")
-        df.to_sql(table_name, engine, if_exists='append', index=False, chunksize=10000)
-        print("[+] Ingestion finished successfully.")
+        print(f"Inserting {len(df):,} rows into '{table_name}'...")
+        df.to_sql(table_name, engine, if_exists="append", index=False, chunksize=10000)
 
-        # Verify row count
+        # Verify inserted count
         with engine.connect() as conn:
-            row_count = conn.execute(text(f"SELECT count(*) FROM {table_name};")).scalar()
-            print(f"[🎉] Verification: {row_count:,} rows currently stored in '{table_name}'.")
+            total_rows = conn.execute(text(f"SELECT count(*) FROM {table_name};")).scalar()
 
-    except SQLAlchemyError as err:
-        print(f"[!] Database Error during data load: {err}")
-        sys.exit(1)
-    except Exception as err:
-        print(f"[!] Unexpected error during data ingestion: {err}")
-        sys.exit(1)
+        print(f"Loaded successfully: {total_rows:,} rows in '{table_name}'.")
+
+    except SQLAlchemyError as e:
+        print(f"Database error while loading data: {e}")
+        raise
 
 
-# ======================================================================
+# ==============================================================================
 # MAIN PIPELINE
-# ======================================================================
+# ==============================================================================
 def main():
-    print("=" * 65)
-    print("🚀 ETL PIPELINE: CSV TO POSTGRESQL")
-    print("=" * 65)
+    # 1. Extract
+    raw_df = load_raw_data(INPUT_CSV_PATH)
 
-    # 1. Read Dataset (with try-catch)
-    raw_df = read_dataset(DEFAULT_DATASET_PATH)
+    # 2. Transform
+    clean_df = transform_data(raw_df)
 
-    # 2. Transform & Clean Data
-    cleaned_df = transform_data(raw_df)
+    # 3. Export
+    export_cleaned_data(clean_df, OUTPUT_CSV_PATH)
 
-    # 3. Save Cleaned Files (with try-catch)
-    save_cleaned_data(cleaned_df, CLEANED_CSV_PATH, CLEANED_XLSX_PATH)
+    # 4. Connect
+    engine = get_database_engine(DB_USER, DB_PASS, DB_HOST, DB_PORT, DB_NAME)
 
-    # 4. Connect to Database (with try-catch)
-    engine = get_db_connection(**DB_CONFIG)
-
-    # 5. Create Table & Load Data (with try-catch)
+    # 5. Load
     create_table_if_not_exists(engine)
-    load_data_to_db(cleaned_df, engine, table_name='tbl_sales_transaction', truncate=True)
+    load_to_database(clean_df, engine)
 
-    print("\n" + "=" * 65)
-    print("✅ ETL PIPELINE COMPLETED SUCCESSFULLY!")
-    print("=" * 65)
+    print("ETL pipeline finished successfully.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
