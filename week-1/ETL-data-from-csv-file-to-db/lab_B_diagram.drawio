@@ -1,0 +1,40 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:143.0) Gecko/20100101 Firefox/143.0" version="28.2.3">
+  <diagram name="Page-1" id="LMpQxSev6slKkc1KvUCD">
+    <mxGraphModel dx="786" dy="391" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="827" background="none" math="0" shadow="1" adaptiveColors="simple">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-11" value="" style="group;labelBackgroundColor=none;fontColor=#EEEEEE;" parent="1" vertex="1" connectable="0">
+          <mxGeometry x="253" y="85" width="560" height="320" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;labelBackgroundColor=none;strokeColor=#0B4D6A;fontColor=default;" parent="XQaXQQrHAWHooEJmd-nn-11" source="XQaXQQrHAWHooEJmd-nn-1" target="XQaXQQrHAWHooEJmd-nn-3" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-1" value="Uncleaned Data in CSV" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#09555B;strokeColor=#BAC8D3;fontColor=#EEEEEE;" parent="XQaXQQrHAWHooEJmd-nn-11" vertex="1">
+          <mxGeometry y="120" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;strokeColor=#0B4D6A;fontColor=default;" parent="XQaXQQrHAWHooEJmd-nn-11" source="XQaXQQrHAWHooEJmd-nn-3" target="XQaXQQrHAWHooEJmd-nn-6" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;labelBackgroundColor=none;strokeColor=#0B4D6A;fontColor=default;" parent="XQaXQQrHAWHooEJmd-nn-11" source="XQaXQQrHAWHooEJmd-nn-3" target="XQaXQQrHAWHooEJmd-nn-7" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-3" value="ETL - Notebook" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#09555B;strokeColor=#BAC8D3;fontColor=#EEEEEE;" parent="XQaXQQrHAWHooEJmd-nn-11" vertex="1">
+          <mxGeometry x="200" y="130" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-5" value="PostgreSQL DB" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=15;labelBackgroundColor=none;fillColor=#09555B;strokeColor=#BAC8D3;fontColor=#EEEEEE;" parent="XQaXQQrHAWHooEJmd-nn-11" vertex="1">
+          <mxGeometry x="440" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-6" value="&lt;div&gt;Cleaned Data&amp;nbsp;&lt;/div&gt;&lt;div&gt;in CSV&lt;/div&gt;" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#09555B;strokeColor=#BAC8D3;fontColor=#EEEEEE;" parent="XQaXQQrHAWHooEJmd-nn-11" vertex="1">
+          <mxGeometry x="440" y="120" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-7" value="Cleaned Data in Excel" style="rounded=0;whiteSpace=wrap;html=1;labelBackgroundColor=none;fillColor=#09555B;strokeColor=#BAC8D3;fontColor=#EEEEEE;" parent="XQaXQQrHAWHooEJmd-nn-11" vertex="1">
+          <mxGeometry x="440" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="XQaXQQrHAWHooEJmd-nn-9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;labelBackgroundColor=none;strokeColor=#0B4D6A;fontColor=default;" parent="XQaXQQrHAWHooEJmd-nn-11" source="XQaXQQrHAWHooEJmd-nn-3" target="XQaXQQrHAWHooEJmd-nn-5" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
