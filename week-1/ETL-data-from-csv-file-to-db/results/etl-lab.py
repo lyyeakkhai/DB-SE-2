@@ -15,9 +15,7 @@ from sqlalchemy import create_engine, text
 # Ignore warning
 warnings.filterwarnings('ignore')
 
-# ----------------------------------------------------------------------
 # File paths
-# ----------------------------------------------------------------------
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_DIR = os.path.dirname(SCRIPT_DIR)  # week-1/ETL-data-from-csv-file-to-db
 DATASET_PATH = os.path.join(BASE_DIR, 'dataset', 'sales_transaction_dataset.csv')
