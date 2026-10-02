@@ -1,13 +1,4 @@
 {
-  "database": {
-    "de-postgres": {
-      "name": "de-postgres",
-      "dbType": "PostgreSQL",
-      "host": "localhost",
-      "port": 5432,
-      "user": "postgres",
-      "password": "post@123!",
-      "database": "postgres"
-    }
-  }
+    "database": {},
+    "$schema": "https://cdn.database-client.com/dbclient/schema.json"
 }
